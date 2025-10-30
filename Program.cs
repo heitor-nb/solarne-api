@@ -10,6 +10,11 @@ using SolarneApi.Persistance;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy => policy.WithOrigins("https://solarne.com.br").AllowAnyHeader().AllowAnyMethod());
+});
+
 builder.Services.AddDbContext<ApiContext>(options =>
 {
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default"));
@@ -34,6 +39,8 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+app.UseCors("AllowFrontend");
 
 app.UseAuthentication();
 app.UseAuthorization();
