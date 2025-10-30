@@ -1,0 +1,51 @@
+# Compilação
+bin/
+obj/
+
+# Configurações do usuário e do ambiente
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.vs/
+.idea/
+*.csproj.user
+
+# Logs e Debug
+logs/
+*.log
+**/*.log
+debug/
+dump/
+
+# Configuração de build
+BuildOutput/
+publish/
+out/
+
+# Credenciais sensíveis
+secrets.json
+appsettings.Development.json
+
+# Pacotes e dependências
+node_modules/
+dist/
+*.nupkg
+*.snupkg
+*.lock.json
+.vsconfig
+
+# Arquivos do Docker
+docker-compose.override.yml
+docker-compose.override.debug.yml
+docker-compose.override.release.yml
+*.dockerignore
+
+# Configuração do EF Core Migrations
+Migrations/
+
+# Arquivos temporários
+*.pid
+*.swp
+*.swo
