@@ -47,11 +47,15 @@ app.UseAuthorization();
 
 // ---- AUTH ----------
 
-app.MapPost("api/signup", async (
+app.MapPost("signup", async (
+    HttpContext httpContext,
     [FromBody] UserDto userRequest,
     [FromServices] ApiContext context
 ) =>
 {
+    var authenticatedUser = httpContext.User;
+    if (authenticatedUser.Identity?.Name != builder.Configuration["AdminEmail"]) return Results.Unauthorized();
+
     var existingUser = await context.Users.FirstOrDefaultAsync(u => u.Email.Equals(userRequest.Email));
     if (existingUser != null) return Results.BadRequest();
 
@@ -62,9 +66,9 @@ app.MapPost("api/signup", async (
     await context.SaveChangesAsync();
 
     return Results.Created();
-});
+}).RequireAuthorization();
 
-app.MapPost("api/login", async (
+app.MapPost("login", async (
     [FromBody] UserDto userRequest,
     [FromServices] ApiContext context
 ) =>
@@ -81,7 +85,7 @@ app.MapPost("api/login", async (
 
 // ---- Solutions ----------
 
-var solutions = app.MapGroup("api/solutions");
+var solutions = app.MapGroup("solutions");
 
 solutions.MapPost("", async (
     [FromBody] SolutionDto solutionRequest,
@@ -119,7 +123,7 @@ solutions.MapDelete("{id}", async (
 
 // ---- Contacts ----------
 
-var contacts = app.MapGroup("api/contacts");
+var contacts = app.MapGroup("contacts");
 
 contacts.MapPost("", async (
     [FromBody] ContactDto contactRequest,
