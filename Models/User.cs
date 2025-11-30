@@ -1,5 +1,3 @@
-using System;
-
 namespace SolarneApi.Models;
 
 public class User : BaseEntity

@@ -25,6 +25,7 @@ publish/
 out/
 
 # Credenciais sensíveis
+.env
 secrets.json
 appsettings.Development.json
 
@@ -40,10 +41,6 @@ dist/
 docker-compose.override.yml
 docker-compose.override.debug.yml
 docker-compose.override.release.yml
-*.dockerignore
-
-# Configuração do EF Core Migrations
-Migrations/
 
 # Arquivos temporários
 *.pid

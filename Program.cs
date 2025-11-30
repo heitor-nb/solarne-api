@@ -1,10 +1,8 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using SolarneApi.Auth;
-using SolarneApi.Dtos;
+using SolarneApi;
 using SolarneApi.Models;
 using SolarneApi.Persistance;
 
@@ -12,7 +10,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontend", policy => policy.WithOrigins("https://solarne.com.br").AllowAnyHeader().AllowAnyMethod());
+    options.AddPolicy("AllowFrontend", policy => 
+        policy
+            .WithOrigins("https://solarne.com.br")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+    );
 });
 
 builder.Services.AddDbContext<ApiContext>(options =>
@@ -45,113 +48,33 @@ app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 
-// ---- AUTH ----------
+app
+    .MapAuthEndpoints(builder.Configuration)
+    .MapSolutionsEndpoints()
+    .MapContactsEndpoints();
 
-app.MapPost("signup", async (
-    HttpContext httpContext,
-    [FromBody] UserDto userRequest,
-    [FromServices] ApiContext context
-) =>
-{
-    var authenticatedUser = httpContext.User;
-    if (authenticatedUser.Identity?.Name != builder.Configuration["AdminEmail"]) return Results.Unauthorized();
-
-    var existingUser = await context.Users.FirstOrDefaultAsync(u => u.Email.Equals(userRequest.Email));
-    if (existingUser != null) return Results.BadRequest();
-
-    var hashedPassword = BCrypt.Net.BCrypt.HashPassword(userRequest.Password);
-    var user = new User(userRequest.Email, hashedPassword);
-
-    await context.Users.AddAsync(user);
-    await context.SaveChangesAsync();
-
-    return Results.Created();
-}).RequireAuthorization();
-
-app.MapPost("login", async (
-    [FromBody] UserDto userRequest,
-    [FromServices] ApiContext context
-) =>
-{
-    var user = await context.Users.FirstOrDefaultAsync(u => u.Email == userRequest.Email);
-    if (user == null) return Results.NotFound();
-
-    if (!BCrypt.Net.BCrypt.Verify(userRequest.Password, user.Password)) return Results.BadRequest();
-
-    var token = new JwtService(builder.Configuration).GenerateToken(user);
-
-    return Results.Ok(new { token });  
-});
-
-// ---- Solutions ----------
-
-var solutions = app.MapGroup("solutions");
-
-solutions.MapPost("", async (
-    [FromBody] SolutionDto solutionRequest,
-    [FromServices] ApiContext context
-) =>
-{
-    var solution = new Solution(
-        solutionRequest.ImageUrl,
-        solutionRequest.Location,
-        solutionRequest.Power,
-        solutionRequest.AnnualSaving
-    );
-
-    await context.Solutions.AddAsync(solution);
-    await context.SaveChangesAsync();
-
-    return Results.Created();
-}).RequireAuthorization();
-
-solutions.MapGet("", async ([FromServices] ApiContext context) => Results.Ok(await context.Solutions.OrderByDescending(s => s.CreatedAt).ToListAsync()));
-
-solutions.MapDelete("{id}", async (
-    [FromRoute] Guid id,
-    [FromServices] ApiContext context
-) =>
-{
-    var solution = await context.Solutions.FirstOrDefaultAsync(s => s.Id == id);
-    if (solution == null) return Results.NotFound();
-
-    context.Solutions.Remove(solution);
-    await context.SaveChangesAsync();
-
-    return Results.NoContent();
-}).RequireAuthorization();
-
-// ---- Contacts ----------
-
-var contacts = app.MapGroup("contacts");
-
-contacts.MapPost("", async (
-    [FromBody] ContactDto contactRequest,
-    [FromServices] ApiContext context
-) =>
-{
-    var name = contactRequest.Name;
-    var number = contactRequest.Number;
-
-    if (name.Length > 64 || number.Length > 64) return Results.BadRequest();
-
-    var contact = new Contact(name, number);
-
-    await context.Contacts.AddAsync(contact);
-    await context.SaveChangesAsync();
-
-    return Results.Created();
-});
-
-contacts.MapGet("", async ([FromServices] ApiContext context) => Results
-    .Ok(await context.Contacts.OrderByDescending(c => c.CreatedAt).ToListAsync()))
-    .RequireAuthorization();
-
-using(var scope = app.Services.CreateScope())
+await using(var scope = app.Services.CreateAsyncScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApiContext>();
 
-    await context.Database.EnsureCreatedAsync();
+    await context.Database.MigrateAsync();
+
+    if (!context.Users.Any())
+    {
+        var adminEmail = builder.Configuration["AdminSettings:AdminEmail"];
+        var adminPassword = builder.Configuration["AdminSettings:AdminPassword"];
+
+        if (!string.IsNullOrWhiteSpace(adminEmail) && !string.IsNullOrWhiteSpace(adminPassword))
+        {   
+            var admin = new User(
+                adminEmail,
+                BCrypt.Net.BCrypt.HashPassword(adminPassword)
+            );
+
+            await context.Users.AddAsync(admin);
+            await context.SaveChangesAsync();
+        }
+    }
 }
 
 app.Run();
